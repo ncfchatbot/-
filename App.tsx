@@ -17,10 +17,15 @@ export default function App() {
 
   // Simulate persistent login within session
   useEffect(() => {
-    const savedUser = sessionStorage.getItem('questupman_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-      setView('setup');
+    try {
+      const savedUser = sessionStorage.getItem('questupman_user');
+      if (savedUser && savedUser !== 'undefined') {
+        setUser(JSON.parse(savedUser));
+        setView('setup');
+      }
+    } catch (e) {
+      console.error("Failed to parse saved user", e);
+      sessionStorage.removeItem('questupman_user');
     }
   }, []);
 
@@ -56,8 +61,12 @@ export default function App() {
       });
       setUserAnswers(new Array(questions.length).fill(null));
       setView('quiz');
-    } catch (err) {
-      alert("AI ไม่สามารถสร้างข้อสอบได้ในขณะนี้เนื่องจากปริมาณการใช้งานสูง (Rate Limit) กรุณาลองใหม่อีกครั้งใน 1 นาที");
+    } catch (err: any) {
+      console.error(err);
+      const msg = err.message?.includes("API Key") 
+        ? "ระบบขัดข้อง: ไม่พบ API Key สำหรับประมวลผล กรุณาติดต่อผู้ดูแลระบบ"
+        : "AI ไม่สามารถสร้างข้อสอบได้ในขณะนี้เนื่องจากปริมาณการใช้งานสูง (Rate Limit) กรุณาลองใหม่อีกครั้งใน 1 นาที";
+      alert(msg);
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +97,7 @@ export default function App() {
       
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         {isLoading && (
-          <div className="fixed inset-0 bg-white/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 text-center">
+          <div className="fixed inset-0 bg-white/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
             <div className="relative w-24 h-24 mb-6">
               <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
               <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
