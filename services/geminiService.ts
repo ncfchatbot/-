@@ -2,6 +2,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ReferenceFile, Grade, Language, Question, AnalysisResult } from "../types";
 
+// Helper สำหรับตรวจสอบ API Key
+const getApiKey = () => {
+  return process.env.API_KEY || (window as any).process?.env?.API_KEY || "";
+};
+
 // Function to handle exponential backoff retry for high volume traffic
 async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
   try {
@@ -23,7 +28,12 @@ export async function generateExamFromFile(
   count: number,
   weakTopics?: string[]
 ): Promise<Question[]> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("Missing API Key. Please ensure process.env.API_KEY is configured.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const fileParts = files.map(f => ({
     inlineData: {
@@ -88,7 +98,10 @@ export async function analyzeExamResults(
   questions: Question[], 
   userAnswers: (number | null)[]
 ): Promise<AnalysisResult> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("Missing API Key");
+
+  const ai = new GoogleGenAI({ apiKey });
   const history = questions.map((q, i) => ({
     topic: q.topic,
     correct: q.correctIndex === userAnswers[i]
