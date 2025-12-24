@@ -2,6 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ReferenceFile, Grade, Language, Question, AnalysisResult } from "../types.ts";
 
+// Helper สำหรับตรวจสอบ Key อย่างละเอียด
+const isValidKey = (key: any): boolean => {
+  if (!key) return false;
+  const s = String(key).trim();
+  return s !== "" && s !== "undefined" && s !== "null" && s.length > 5;
+};
+
 export async function generateExamFromFile(
   files: ReferenceFile[],
   grade: Grade,
@@ -9,10 +16,15 @@ export async function generateExamFromFile(
   count: number,
   weakTopics?: string[]
 ): Promise<Question[]> {
-  // Always create a new instance to use the most recent key from the environment/dialog
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
 
-  // Prepare file data
+  if (!isValidKey(apiKey)) {
+    throw new Error("API Key ไม่ถูกต้องหรือยังไม่ได้ติดตั้ง กรุณาเชื่อมต่อ API Key ผ่านเมนู Re-Connect");
+  }
+
+  // สร้าง Instance ใหม่ทุกครั้งเพื่อให้ใช้ Key ล่าสุด
+  const ai = new GoogleGenAI({ apiKey: apiKey! });
+
   const contentParts: any[] = files.map(f => ({
     inlineData: {
       data: f.data.split(',')[1] || f.data,
@@ -20,8 +32,7 @@ export async function generateExamFromFile(
     }
   }));
 
-  const systemInstruction = `คุณคือผู้ช่วยติวเตอร์ AI ระดับโลก หน้าที่ของคุณคือวิเคราะห์เนื้อหาจากเอกสารที่ผู้ใช้ส่งมา (เช่น ใบงาน สรุปเนื้อหา หรือหนังสือเรียน) 
-เพื่อสร้างข้อสอบปรนัย (4 ตัวเลือก) ที่มีคุณภาพสูงและตรงตามเนื้อหาที่ปรากฏในรูปภาพหรือไฟล์`;
+  const systemInstruction = `คุณคือผู้ช่วยติวเตอร์ AI ระดับโลก หน้าที่ของคุณคือวิเคราะห์เนื้อหาจากเอกสารที่ผู้ใช้ส่งมา เพื่อสร้างข้อสอบปรนัย (4 ตัวเลือก) ที่มีคุณภาพสูงและตรงตามเนื้อหาที่ปรากฏในรูปภาพหรือไฟล์`;
 
   const userPrompt = `โปรดสร้างข้อสอบปรนัยจำนวน ${count} ข้อ สำหรับนักเรียนระดับชั้น ${grade} สื่อสารด้วยภาษา ${language === 'Thai' ? 'ไทย' : 'อังกฤษ'} 
 โดยวิเคราะห์จากเอกสารที่แนบมานี้
@@ -29,8 +40,7 @@ export async function generateExamFromFile(
 ข้อกำหนด:
 1. ข้อสอบต้องเน้นเนื้อหาที่สำคัญจากรูปภาพ/ไฟล์ที่ส่งมา
 2. ระดับความยากต้องเหมาะสมกับเด็กชั้น ${grade}
-3. สำหรับวิชาภาษาไทย (ถ้ามี) ให้เน้นหลักการใช้ภาษา มาตราตัวสะกด และการอ่านตามภาพ
-4. ต้องมีเฉลยที่ถูกต้องและคำอธิบายประกอบที่เข้าใจง่ายสำหรับเด็ก
+3. ต้องมีเฉลยที่ถูกต้องและคำอธิบายประกอบที่เข้าใจง่าย
 ${weakTopics ? `เน้นเป็นพิเศษในหัวข้อ: ${weakTopics.join(', ')}` : ''}
 
 ส่งคำตอบกลับเป็น JSON Array ตามโครงสร้างที่กำหนดเท่านั้น`;
@@ -68,7 +78,6 @@ ${weakTopics ? `เน้นเป็นพิเศษในหัวข้อ:
       id: `q-${Date.now()}-${i}`
     }));
   } catch (e) {
-    console.error("Failed to parse JSON from AI response:", text);
     throw new Error("AI ส่งข้อมูลไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
   }
 }
@@ -77,7 +86,10 @@ export async function analyzeExamResults(
   questions: Question[], 
   userAnswers: (number | null)[]
 ): Promise<AnalysisResult> {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = process.env.API_KEY;
+  if (!isValidKey(apiKey)) throw new Error("Missing API Key");
+
+  const ai = new GoogleGenAI({ apiKey: apiKey! });
 
   const history = questions.map((q, i) => ({
     topic: q.topic,
@@ -85,8 +97,7 @@ export async function analyzeExamResults(
     question: q.text
   }));
 
-  const prompt = `วิเคราะห์ผลสอบชุดนี้: ${JSON.stringify(history)}
-ให้สรุปผลเป็นภาษาไทย บอกจุดแข็ง จุดที่ต้องระวัง และคำแนะนำในการติวเพิ่มเติมให้น้องเก่งขึ้น`;
+  const prompt = `วิเคราะห์ผลสอบชุดนี้: ${JSON.stringify(history)} ให้สรุปผลเป็นภาษาไทย บอกจุดแข็ง จุดที่ต้องระวัง และคำแนะนำในการติวเพิ่มเติม`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -109,12 +120,11 @@ export async function analyzeExamResults(
   try {
     return JSON.parse(response.text || "{}");
   } catch (e) {
-    console.error("Failed to parse analysis JSON:", response.text);
     return {
-      summary: "ไม่สามารถวิเคราะห์ข้อมูลได้ในขณะนี้",
+      summary: "ไม่สามารถวิเคราะห์ข้อมูลได้",
       strengths: [],
       weaknesses: [],
-      readingAdvice: "ลองทำข้อสอบใหม่อีกครั้งเพื่อให้ AI ช่วยวิเคราะห์"
+      readingAdvice: "ลองทำข้อสอบใหม่อีกครั้ง"
     };
   }
 }
