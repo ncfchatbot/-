@@ -22,7 +22,7 @@ const Header: React.FC<HeaderProps> = ({ user, onHome, onLogout }) => {
             <i className="fas fa-bolt text-xl"></i>
           </div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-700 to-indigo-600 bg-clip-text text-transparent hidden sm:block">
-            Class Hero
+            QuestUpMan
           </h1>
         </div>
         

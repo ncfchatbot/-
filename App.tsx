@@ -17,7 +17,7 @@ export default function App() {
 
   // Simulate persistent login within session
   useEffect(() => {
-    const savedUser = sessionStorage.getItem('class_hero_user');
+    const savedUser = sessionStorage.getItem('questupman_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
       setView('setup');
@@ -26,13 +26,13 @@ export default function App() {
 
   const handleLogin = (newUser: User) => {
     setUser(newUser);
-    sessionStorage.setItem('class_hero_user', JSON.stringify(newUser));
+    sessionStorage.setItem('questupman_user', JSON.stringify(newUser));
     setView('setup');
   };
 
   const handleLogout = () => {
     setUser(null);
-    sessionStorage.removeItem('class_hero_user');
+    sessionStorage.removeItem('questupman_user');
     setView('login');
   };
 
@@ -96,7 +96,7 @@ export default function App() {
                 <i className="fas fa-robot text-blue-600 text-2xl animate-bounce"></i>
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">Class Hero กำลังประมวลผลให้คุณ</h2>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">QuestUpMan กำลังประมวลผลให้คุณ</h2>
             <p className="text-slate-500 max-w-sm">
               เรากำลังแยกส่วนประมวลผลสำหรับคิวของคุณ เพื่อรองรับการใช้งานพร้อมกันจำนวนมาก...
             </p>

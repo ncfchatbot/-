@@ -43,7 +43,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center text-white shadow-xl mx-auto mb-6 rotate-3">
             <i className="fas fa-bolt text-4xl"></i>
           </div>
-          <h1 className="text-3xl font-black text-slate-800 mb-2">เข้าสู่ระบบ Class Hero</h1>
+          <h1 className="text-3xl font-black text-slate-800 mb-2">เข้าสู่ระบบ QuestUpMan</h1>
           <p className="text-slate-500">ติวสอบแม่นยำ แยกโปรไฟล์รายบุคคล</p>
         </div>
 

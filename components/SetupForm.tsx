@@ -159,7 +159,7 @@ const SetupForm: React.FC<SetupFormProps> = ({ onStart }) => {
             onClick={() => onStart(files, grade, lang, count)}
             className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-slate-300 disabled:to-slate-300 disabled:cursor-not-allowed text-white rounded-2xl font-black text-xl shadow-xl shadow-blue-100 transition-all active:scale-95"
           >
-            สร้างชุดข้อสอบ Hero <i className="fas fa-bolt ml-2"></i>
+            สร้างชุดข้อสอบ QuestUpMan <i className="fas fa-bolt ml-2"></i>
           </button>
         </div>
       </div>
