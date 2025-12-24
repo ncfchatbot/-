@@ -18,21 +18,22 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      // 1. ตรวจสอบ API Key ทันที
-      const apiKey = process.env.API_KEY;
-      const isKeySet = apiKey && apiKey !== "undefined" && apiKey !== "";
-      
-      if (!isKeySet) {
+    const initApp = async () => {
+      // ตรวจสอบ API Key
+      const key = process.env.API_KEY;
+      if (!key || key === "" || key === "undefined") {
+        // ถ้าไม่มีใน env ให้ลองเช็ค AI Studio Bridge
         try {
-          const aiStudioKey = await (window as any).aistudio?.hasSelectedApiKey();
-          if (!aiStudioKey) setHasKey(false);
+          const selected = await (window as any).aistudio?.hasSelectedApiKey();
+          setHasKey(!!selected);
         } catch (e) {
           setHasKey(false);
         }
+      } else {
+        setHasKey(true);
       }
 
-      // 2. โหลด User
+      // โหลดข้อมูลผู้ใช้
       const saved = sessionStorage.getItem('questup_user');
       if (saved && saved !== 'undefined') {
         try {
@@ -41,16 +42,17 @@ export default function App() {
         } catch(e) {}
       }
     };
-    checkAuth();
+    initApp();
   }, []);
 
   const handleConnectKey = async () => {
     if ((window as any).aistudio?.openSelectKey) {
       await (window as any).aistudio.openSelectKey();
       setHasKey(true);
-      window.location.reload(); // รีโหลดเพื่อให้แอปใช้ Key ใหม่
+      setError(null);
     } else {
-      setHasKey(false);
+      // ถ้าไม่อยู่ใน AI Studio ให้บอกวิธีเซตใน Netlify
+      alert("กรุณาตั้งค่า API_KEY ใน Netlify Environment Variables");
     }
   };
 
@@ -72,10 +74,11 @@ export default function App() {
       setUserAnswers(new Array(questions.length).fill(null));
       setView('quiz');
     } catch (err: any) {
-      if (err.message?.includes("AUTH_REQUIRED")) {
+      console.error(err);
+      if (err.message?.includes("AUTH_REQUIRED") || err.message?.includes("API key")) {
         setHasKey(false);
       } else {
-        setError(err.message || "เกิดข้อผิดพลาด");
+        setError(err.message || "เกิดข้อผิดพลาดในการติดต่อ AI");
       }
     } finally {
       setIsLoading(false);
@@ -91,26 +94,25 @@ export default function App() {
         onManageKey={handleConnectKey} 
       />
 
+      {/* หน้ากากป้องกัน API Key หาย (จะไม่ขาวโพลนแล้ว) */}
       {!hasKey && (
         <div className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3.5rem] p-12 max-w-xl w-full shadow-2xl border-b-[16px] border-indigo-600 animate-slideUp text-center">
-            <div className="w-24 h-24 bg-rose-50 rounded-[2.5rem] flex items-center justify-center text-rose-600 mx-auto mb-8">
-              <i className="fas fa-plug text-4xl"></i>
+          <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl border-b-[12px] border-indigo-600 animate-slideUp text-center">
+            <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center text-rose-600 mx-auto mb-6">
+              <i className="fas fa-key text-3xl"></i>
             </div>
-            <h2 className="text-3xl font-black text-slate-800 mb-4 tracking-tighter italic uppercase">AI ยังไม่พร้อมทำงาน</h2>
-            <p className="text-slate-500 mb-8 font-medium">กรุณาตั้งค่า API_KEY ใน Netlify หรือเลือก Key จาก AI Studio ก่อนเริ่มภารกิจ</p>
+            <h2 className="text-2xl font-black text-slate-800 mb-4">เชื่อมต่อ AI ไม่สำเร็จ</h2>
+            <p className="text-slate-500 mb-8 text-sm">เราไม่พบ API Key ในระบบของคุณ กรุณาตรวจสอบการตั้งค่าใน Netlify หรือเลือก Key จาก AI Studio</p>
             
-            <div className="space-y-4">
-              <button onClick={handleConnectKey} className="w-full py-6 bg-indigo-600 text-white rounded-3xl font-black text-xl shadow-xl hover:bg-indigo-700 transition-all active:scale-95">
-                เลือก API Key (AI Studio)
+            <div className="grid grid-cols-1 gap-3">
+              <button onClick={handleConnectKey} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg hover:bg-indigo-700 transition-all">
+                เชื่อมต่อผ่าน AI Studio
               </button>
-              <button onClick={() => window.location.reload()} className="w-full py-6 bg-slate-800 text-white rounded-3xl font-black text-xl shadow-xl transition-all active:scale-95">
-                ตั้งค่าใน Netlify แล้ว (คลิกเพื่อรีโหลด)
+              <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black transition-all">
+                ฉันตั้งค่าใน Netlify แล้ว (รีโหลด)
               </button>
             </div>
-            <p className="mt-8 text-[10px] text-slate-300 font-black tracking-widest uppercase">
-              How to: Netlify > Site Settings > Env Variables > API_KEY
-            </p>
+            <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="inline-block mt-6 text-xs text-indigo-500 font-bold underline">อ่านวิธีตั้งค่า API Key</a>
           </div>
         </div>
       )}
@@ -118,14 +120,14 @@ export default function App() {
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         {isLoading && (
           <div className="fixed inset-0 bg-white/95 z-50 flex flex-col items-center justify-center animate-fadeIn">
-            <div className="w-20 h-20 border-8 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-6"></div>
-            <h3 className="text-2xl font-black text-slate-800 italic">QuestUp AI กำลังทำงาน...</h3>
+            <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-6"></div>
+            <h3 className="text-xl font-black text-slate-800 italic">AI กำลังวิเคราะห์ชีทเรียน...</h3>
           </div>
         )}
 
         {error && (
-          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl flex items-center justify-between">
-            <span className="font-bold">⚠️ {error}</span>
+          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl flex items-center justify-between animate-slideUp">
+            <span className="font-bold text-sm">⚠️ {error}</span>
             <button onClick={() => setError(null)} className="text-rose-400"><i className="fas fa-times"></i></button>
           </div>
         )}
