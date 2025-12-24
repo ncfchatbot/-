@@ -1,5 +1,6 @@
 {
-  "name": "เกร็ง-ข้อสอบ",
-  "description": "An AI-powered exam preparation platform tailored to Thai schools, programs (Standard, EP, Inter), and difficulty levels. Generate custom exams based on specific chapters and receive deep learning gap analysis.",
+  "name": "Class Hero ⚡️ เก็งข้อสอบแม่นยำ",
+  "short_name": "Class Hero",
+  "description": "แอปช่วยเก็งข้อสอบแม่นยำด้วย AI ติวตรงจุดสูงสุด 50 ข้อ แยกโปรไฟล์รายบุคคลเพื่อการเรียนรู้อย่างมีประสิทธิภาพ",
   "requestFramePermissions": []
 }
