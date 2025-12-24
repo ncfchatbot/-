@@ -9,32 +9,39 @@ export async function generateExamFromFile(
   count: number,
   weakTopics?: string[]
 ): Promise<Question[]> {
-  // สร้าง Instance ใหม่ทุกครั้งตามคำแนะนำเพื่อป้องกันปัญหา Key ไม่อัปเดต
+  // Always create a new instance to use the most recent key from the environment/dialog
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  const fileParts = files.map(f => ({
+  // Prepare file data
+  const contentParts: any[] = files.map(f => ({
     inlineData: {
       data: f.data.split(',')[1] || f.data,
       mimeType: f.mimeType
     }
   }));
 
-  const targetingPrompt = weakTopics && weakTopics.length > 0 
-    ? `FOCUS AREAS: ${weakTopics.join(', ')}`
-    : "Generate realistic exam questions based on the attached files.";
+  const systemInstruction = `คุณคือผู้ช่วยติวเตอร์ AI ระดับโลก หน้าที่ของคุณคือวิเคราะห์เนื้อหาจากเอกสารที่ผู้ใช้ส่งมา (เช่น ใบงาน สรุปเนื้อหา หรือหนังสือเรียน) 
+เพื่อสร้างข้อสอบปรนัย (4 ตัวเลือก) ที่มีคุณภาพสูงและตรงตามเนื้อหาที่ปรากฏในรูปภาพหรือไฟล์`;
 
-  const prompt = `Act as an expert Thai curriculum educator for Grade ${grade}.
-  Task: ${targetingPrompt}
-  Output Language: ${language}
-  Total Questions: ${count}
-  Requirements: Analyze files, 4 options, Thai explanation, Return JSON Array.`;
+  const userPrompt = `โปรดสร้างข้อสอบปรนัยจำนวน ${count} ข้อ สำหรับนักเรียนระดับชั้น ${grade} สื่อสารด้วยภาษา ${language === 'Thai' ? 'ไทย' : 'อังกฤษ'} 
+โดยวิเคราะห์จากเอกสารที่แนบมานี้
+
+ข้อกำหนด:
+1. ข้อสอบต้องเน้นเนื้อหาที่สำคัญจากรูปภาพ/ไฟล์ที่ส่งมา
+2. ระดับความยากต้องเหมาะสมกับเด็กชั้น ${grade}
+3. สำหรับวิชาภาษาไทย (ถ้ามี) ให้เน้นหลักการใช้ภาษา มาตราตัวสะกด และการอ่านตามภาพ
+4. ต้องมีเฉลยที่ถูกต้องและคำอธิบายประกอบที่เข้าใจง่ายสำหรับเด็ก
+${weakTopics ? `เน้นเป็นพิเศษในหัวข้อ: ${weakTopics.join(', ')}` : ''}
+
+ส่งคำตอบกลับเป็น JSON Array ตามโครงสร้างที่กำหนดเท่านั้น`;
+
+  contentParts.push({ text: userPrompt });
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: {
-      parts: [...fileParts, { text: prompt }]
-    },
+    contents: [{ parts: contentParts }],
     config: {
+      systemInstruction,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.ARRAY,
@@ -54,7 +61,16 @@ export async function generateExamFromFile(
   });
 
   const text = response.text || "[]";
-  return JSON.parse(text).map((q: any, i: number) => ({ ...q, id: `q-${Date.now()}-${i}` }));
+  try {
+    const parsedQuestions = JSON.parse(text);
+    return parsedQuestions.map((q: any, i: number) => ({
+      ...q,
+      id: `q-${Date.now()}-${i}`
+    }));
+  } catch (e) {
+    console.error("Failed to parse JSON from AI response:", text);
+    throw new Error("AI ส่งข้อมูลไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");
+  }
 }
 
 export async function analyzeExamResults(
@@ -65,14 +81,16 @@ export async function analyzeExamResults(
 
   const history = questions.map((q, i) => ({
     topic: q.topic,
-    correct: q.correctIndex === userAnswers[i]
+    correct: q.correctIndex === userAnswers[i],
+    question: q.text
   }));
 
-  const prompt = `Analyze this performance: ${JSON.stringify(history)}. Return JSON with summary (Thai), strengths (array), weaknesses (array), readingAdvice (Thai).`;
+  const prompt = `วิเคราะห์ผลสอบชุดนี้: ${JSON.stringify(history)}
+ให้สรุปผลเป็นภาษาไทย บอกจุดแข็ง จุดที่ต้องระวัง และคำแนะนำในการติวเพิ่มเติมให้น้องเก่งขึ้น`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: prompt,
+    contents: [{ parts: [{ text: prompt }] }],
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -87,5 +105,16 @@ export async function analyzeExamResults(
       }
     }
   });
-  return JSON.parse(response.text || "{}");
+  
+  try {
+    return JSON.parse(response.text || "{}");
+  } catch (e) {
+    console.error("Failed to parse analysis JSON:", response.text);
+    return {
+      summary: "ไม่สามารถวิเคราะห์ข้อมูลได้ในขณะนี้",
+      strengths: [],
+      weaknesses: [],
+      readingAdvice: "ลองทำข้อสอบใหม่อีกครั้งเพื่อให้ AI ช่วยวิเคราะห์"
+    };
+  }
 }
