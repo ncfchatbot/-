@@ -9,6 +9,12 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
   try {
     return await fn();
   } catch (error: any) {
+    const errorMsg = error?.message || "";
+    // ถ้าหาโมเดลไม่เจอ หรือ Key ผิดพลาด ไม่ต้อง Retry
+    if (errorMsg.includes("not found") || errorMsg.includes("API key not valid")) {
+      throw error;
+    }
+    
     if (retries > 0 && (error.status === 429 || error.status === 503)) {
       console.warn(`API Rate limit hit, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -19,7 +25,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
 }
 
 /**
- * Generates exam questions based on uploaded files and educational context using Gemini Pro
+ * Generates exam questions using Gemini Flash (More stable and widely available)
  */
 export async function generateExamFromFile(
   files: ReferenceFile[],
@@ -28,8 +34,8 @@ export async function generateExamFromFile(
   count: number,
   weakTopics?: string[]
 ): Promise<Question[]> {
-  // Obtain API key strictly from process.env.API_KEY
-  const apiKey = process.env.API_KEY;
+  // ดึง Key จาก process.env หรือ window context
+  const apiKey = process.env.API_KEY || (window as any).process?.env?.API_KEY;
   if (!apiKey) {
     throw new Error("API_KEY_MISSING");
   }
@@ -57,15 +63,13 @@ export async function generateExamFromFile(
   - กลับค่าเป็น JSON Array เท่านั้น`;
 
   return withRetry(async () => {
-    // Create new GoogleGenAI instance right before the API call for the most up-to-date context
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview", // เปลี่ยนจาก pro เป็น flash เพื่อความเสถียรสูงสุด
       contents: {
         parts: [...fileParts, { text: prompt }]
       },
       config: {
-        thinkingConfig: { thinkingBudget: 10000 },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -91,14 +95,13 @@ export async function generateExamFromFile(
 }
 
 /**
- * Analyzes exam results to identify strengths, weaknesses, and provide learning advice
+ * Analyzes exam results
  */
 export async function analyzeExamResults(
   questions: Question[], 
   userAnswers: (number | null)[]
 ): Promise<AnalysisResult> {
-  // Obtain API key strictly from process.env.API_KEY
-  const apiKey = process.env.API_KEY;
+  const apiKey = process.env.API_KEY || (window as any).process?.env?.API_KEY;
   if (!apiKey) throw new Error("API_KEY_MISSING");
 
   const history = questions.map((q, i) => ({
@@ -114,10 +117,9 @@ export async function analyzeExamResults(
   กลับค่าเป็น JSON`;
 
   return withRetry(async () => {
-    // Create new GoogleGenAI instance right before the API call
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
