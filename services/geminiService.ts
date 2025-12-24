@@ -2,11 +2,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ReferenceFile, Grade, Language, Question, AnalysisResult } from "../types.ts";
 
-// Helper สำหรับตรวจสอบ Key อย่างละเอียด
-const isValidKey = (key: any): boolean => {
-  if (!key) return false;
-  const s = String(key).trim();
-  return s !== "" && s !== "undefined" && s !== "null" && s.length > 5;
+const getApiKey = () => {
+  const key = process.env.API_KEY;
+  return (key && key !== "undefined" && key !== "null") ? key : null;
 };
 
 export async function generateExamFromFile(
@@ -16,14 +14,12 @@ export async function generateExamFromFile(
   count: number,
   weakTopics?: string[]
 ): Promise<Question[]> {
-  const apiKey = process.env.API_KEY;
-
-  if (!isValidKey(apiKey)) {
-    throw new Error("API Key ไม่ถูกต้องหรือยังไม่ได้ติดตั้ง กรุณาเชื่อมต่อ API Key ผ่านเมนู Re-Connect");
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("MISSING_KEY: ไม่พบ API Key กรุณาตั้งค่าใน Environment Variables (Netlify) หรือเชื่อมต่อผ่าน AI Studio");
   }
 
-  // สร้าง Instance ใหม่ทุกครั้งเพื่อให้ใช้ Key ล่าสุด
-  const ai = new GoogleGenAI({ apiKey: apiKey! });
+  const ai = new GoogleGenAI({ apiKey });
 
   const contentParts: any[] = files.map(f => ({
     inlineData: {
@@ -48,7 +44,7 @@ ${weakTopics ? `เน้นเป็นพิเศษในหัวข้อ:
   contentParts.push({ text: userPrompt });
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3-pro-preview", // อัปเกรดเป็น Pro เพื่อคุณภาพสูงสุด
     contents: [{ parts: contentParts }],
     config: {
       systemInstruction,
@@ -70,9 +66,8 @@ ${weakTopics ? `เน้นเป็นพิเศษในหัวข้อ:
     }
   });
 
-  const text = response.text || "[]";
   try {
-    const parsedQuestions = JSON.parse(text);
+    const parsedQuestions = JSON.parse(response.text || "[]");
     return parsedQuestions.map((q: any, i: number) => ({
       ...q,
       id: `q-${Date.now()}-${i}`
@@ -86,10 +81,10 @@ export async function analyzeExamResults(
   questions: Question[], 
   userAnswers: (number | null)[]
 ): Promise<AnalysisResult> {
-  const apiKey = process.env.API_KEY;
-  if (!isValidKey(apiKey)) throw new Error("Missing API Key");
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("Missing API Key");
 
-  const ai = new GoogleGenAI({ apiKey: apiKey! });
+  const ai = new GoogleGenAI({ apiKey });
 
   const history = questions.map((q, i) => ({
     topic: q.topic,
@@ -100,7 +95,7 @@ export async function analyzeExamResults(
   const prompt = `วิเคราะห์ผลสอบชุดนี้: ${JSON.stringify(history)} ให้สรุปผลเป็นภาษาไทย บอกจุดแข็ง จุดที่ต้องระวัง และคำแนะนำในการติวเพิ่มเติม`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3-pro-preview",
     contents: [{ parts: [{ text: prompt }] }],
     config: {
       responseMimeType: "application/json",
