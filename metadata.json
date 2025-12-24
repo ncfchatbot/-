@@ -1,0 +1,5 @@
+{
+  "name": "เกร็ง-ข้อสอบ",
+  "description": "An AI-powered exam preparation platform tailored to Thai schools, programs (Standard, EP, Inter), and difficulty levels. Generate custom exams based on specific chapters and receive deep learning gap analysis.",
+  "requestFramePermissions": []
+}
